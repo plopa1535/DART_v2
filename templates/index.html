@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자본 금리민감도 분석 | DART Dashboard</title>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #F8F9FA;
+            color: #202124;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+            color: white;
+            padding: 24px 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #202124;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #5F6368;
+        }
+
+        .control-group select,
+        .control-group button {
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .control-group select {
+            min-width: 180px;
+            border: 1px solid #DADCE0;
+            background: white;
+            color: #202124;
+            cursor: pointer;
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: #4285F4;
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+        }
+
+        .btn-primary {
+            background: #4285F4;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            min-width: 120px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #3367D6;
+        }
+
+        .btn-primary:disabled {
+            background: #DADCE0;
+            cursor: not-allowed;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: #5F6368;
+            font-size: 14px;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #DADCE0;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+            background: #F1F3F4;
+            padding: 4px;
+            border-radius: 8px;
+            width: fit-content;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #5F6368;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: white;
+            color: #4285F4;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tab:hover:not(.active) {
+            color: #202124;
+        }
+
+        /* Summary Card */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .summary-item {
+            background: #F8F9FA;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: #5F6368;
+            margin-bottom: 4px;
+        }
+
+        .summary-value {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .summary-value.blue { color: #4285F4; }
+        .summary-value.red { color: #EA4335; }
+        .summary-value.green { color: #34A853; }
+
+        .summary-unit {
+            font-size: 12px;
+            color: #5F6368;
+            margin-top: 2px;
+        }
+
+        /* Error Message */
+        .error-message {
+            display: none;
+            background: #FEE2E2;
+            border: 1px solid #FECACA;
+            color: #DC2626;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .error-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        /* Info Message */
+        .info-message {
+            background: #E8F5E9;
+            border: 1px solid #C8E6C9;
+            color: #2E7D32;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #5F6368;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #5F6368;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>자본 금리민감도 분석</h1>
+        <p>주요 생명보험사의 자본총계와 시장금리 민감도(듀레이션) 분석</p>
+    </header>
+
+    <main class="container">
+        <!-- Control Panel -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon" style="background: #E8F0FE; color: #4285F4;">&#9881;</span>
+                분석 설정
+            </div>
+            <div class="control-panel">
+                <div class="control-group">
+                    <label for="company">회사 선택</label>
+                    <select id="company">
+                        <option value="">로딩 중...</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="period">분석 기간</label>
+                    <select id="period">
+                        <option value="3">최근 3년 (12분기)</option>
+                        <option value="5">최근 5년 (20분기)</option>
+                        <option value="7">최근 7년 (28분기)</option>
+                        <option value="10">최근 10년 (40분기)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button class="btn-primary" id="analyzeBtn" onclick="runAnalysis()">
+                        분석 실행
+                    </button>
+                </div>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <span>데이터 분석 중...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage">
+            <div class="error-title" id="errorTitle">오류 발생</div>
+            <div id="errorDetail"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;">
+            <!-- Summary -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon" style="background: #E6F4EA; color: #34A853;">&#9733;</span>
+                    <span id="companyName">삼성생명</span> 듀레이션 분석 결과
+                </div>
+                <div class="info-message">
+                    듀레이션은 금리 변동에 대한 자본의 민감도를 나타냅니다.
+                    듀레이션이 높을수록 금리 변동에 따른 자본 변동이 큽니다.
+                </div>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-label">US 10Y 듀레이션</div>
+                        <div class="summary-value blue" id="summaryUS">-</div>
+                        <div class="summary-unit">미국 국채 10년 기준</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">KR 10Y 듀레이션</div>
+                        <div class="summary-value red" id="summaryKR">-</div>
+                        <div class="summary-unit">한국 국고채 10년 기준</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">최근 자본총계</div>
+                        <div class="summary-value green" id="summaryEquity">-</div>
+                        <div class="summary-unit">억원</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">분석 분기 수</div>
+                        <div class="summary-value" id="summaryQuarters" style="color: #5F6368;">-</div>
+                        <div class="summary-unit">분기</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <!-- Trend Chart -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background: #E8F0FE; color: #4285F4;">&#128200;</span>
+                        자본 & 금리 추이
+                    </div>
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchRateTab('us')">US 10Y</button>
+                        <button class="tab" onclick="switchRateTab('kr')">KR 10Y</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Sensitivity Chart -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background: #FCE8E6; color: #EA4335;">&#9632;</span>
+                        민감도 분석 (Scatter)
+                    </div>
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchScatterTab('us')">US 10Y</button>
+                        <button class="tab" onclick="switchScatterTab('kr')">KR 10Y</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="card" id="emptyState">
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
+                </svg>
+                <h3>분석 결과가 없습니다</h3>
+                <p>회사를 선택하고 분석을 실행해주세요.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>데이터 출처: DART(금융감독원), FRED(미국 연방준비제도), ECOS(한국은행)</p>
+    </footer>
+
+    <script>
+        // Global Variables
+        let trendChart = null;
+        let scatterChart = null;
+        let analysisData = null;
+        let currentRateTab = 'us';
+        let currentScatterTab = 'us';
+
+        // Colors
+        const COLORS = {
+            blue: '#4285F4',
+            red: '#EA4335',
+            green: '#34A853',
+            yellow: '#FBBC04'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadCompanies();
+            initCharts();
+        });
+
+        // Load Companies
+        async function loadCompanies() {
+            try {
+                const response = await fetch('/api/companies');
+                const companies = await response.json();
+
+                const select = document.getElementById('company');
+                select.innerHTML = companies.map(c =>
+                    `<option value="${c.id}">${c.name}</option>`
+                ).join('');
+            } catch (error) {
+                console.error('Failed to load companies:', error);
+                document.getElementById('company').innerHTML =
+                    '<option value="samsung">삼성생명</option>' +
+                    '<option value="hanwha">한화생명</option>' +
+                    '<option value="kyobo">교보생명</option>';
+            }
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            // Trend Chart
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '자본총계 (억원)',
+                            data: [],
+                            borderColor: COLORS.green,
+                            backgroundColor: COLORS.green + '20',
+                            yAxisID: 'y',
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'US 10Y (%)',
+                            data: [],
+                            borderColor: COLORS.blue,
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y1',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'quarter',
+                                displayFormats: {
+                                    quarter: 'yyyy-MM'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '분기'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '자본총계 (억원)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '금리 (%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Scatter Chart
+            const scatterCtx = document.getElementById('scatterChart').getContext('2d');
+            scatterChart = new Chart(scatterCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '자본 vs 금리 변화',
+                        data: [],
+                        backgroundColor: COLORS.blue + '80',
+                        borderColor: COLORS.blue,
+                        pointRadius: 8,
+                        pointHoverRadius: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `금리 변화: ${(context.raw.x * 100).toFixed(2)}%, 자본 변화: ${(context.raw.y * 100).toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '금리 변화 (소수)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '자본 변화율 (QoQ)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run Analysis
+        async function runAnalysis() {
+            const companyId = document.getElementById('company').value;
+            const yearCount = parseInt(document.getElementById('period').value);
+
+            // UI State
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('errorMessage').classList.remove('active');
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        company_id: companyId,
+                        year_count: yearCount
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error.source, data.error.message, data.error.detail);
+                    return;
+                }
+
+                analysisData = data;
+                updateUI(data);
+                document.getElementById('resultsSection').style.display = 'block';
+                document.getElementById('emptyState').style.display = 'none';
+
+            } catch (error) {
+                showError('NETWORK', '서버 연결 실패', error.message);
+            } finally {
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        // Show Error
+        function showError(source, message, detail) {
+            document.getElementById('errorTitle').textContent = `[${source}] ${message}`;
+            document.getElementById('errorDetail').textContent = detail || '';
+            document.getElementById('errorMessage').classList.add('active');
+        }
+
+        // Update UI
+        function updateUI(data) {
+            // Update Summary
+            document.getElementById('companyName').textContent = data.company || '';
+            document.getElementById('summaryUS').textContent =
+                data.duration.us10y.summary !== null ? data.duration.us10y.summary.toFixed(2) : '-';
+            document.getElementById('summaryKR').textContent =
+                data.duration.kr10y.summary !== null ? data.duration.kr10y.summary.toFixed(2) : '-';
+
+            const lastEquity = data.equity_level[data.equity_level.length - 1];
+            document.getElementById('summaryEquity').textContent =
+                lastEquity !== null ? lastEquity.toLocaleString() : '-';
+            document.getElementById('summaryQuarters').textContent = data.quarters.length;
+
+            // Update Trend Chart
+            updateTrendChart(data, currentRateTab);
+
+            // Update Scatter Chart
+            updateScatterChart(data, currentScatterTab);
+        }
+
+        // Update Trend Chart
+        function updateTrendChart(data, rateType) {
+            const labels = data.quarters.map(q => new Date(q));
+            const rateData = rateType === 'us' ? data.us10y_level : data.kr10y_level;
+            const rateLabel = rateType === 'us' ? 'US 10Y (%)' : 'KR 10Y (%)';
+            const rateColor = rateType === 'us' ? COLORS.blue : COLORS.red;
+
+            trendChart.data.labels = labels;
+            trendChart.data.datasets[0].data = data.equity_level;
+            trendChart.data.datasets[1].data = rateData;
+            trendChart.data.datasets[1].label = rateLabel;
+            trendChart.data.datasets[1].borderColor = rateColor;
+
+            trendChart.update();
+        }
+
+        // Update Scatter Chart
+        function updateScatterChart(data, rateType) {
+            const rateChange = rateType === 'us' ? data.us10y_change : data.kr10y_change;
+            const color = rateType === 'us' ? COLORS.blue : COLORS.red;
+
+            const scatterData = [];
+            for (let i = 0; i < data.equity_qoq.length; i++) {
+                if (data.equity_qoq[i] !== null && rateChange[i] !== null) {
+                    scatterData.push({
+                        x: rateChange[i],
+                        y: data.equity_qoq[i]
+                    });
+                }
+            }
+
+            scatterChart.data.datasets[0].data = scatterData;
+            scatterChart.data.datasets[0].backgroundColor = color + '80';
+            scatterChart.data.datasets[0].borderColor = color;
+
+            scatterChart.update();
+        }
+
+        // Switch Rate Tab (Trend Chart)
+        function switchRateTab(type) {
+            currentRateTab = type;
+
+            // Update Tab UI
+            const tabs = document.querySelectorAll('.charts-grid .card:first-child .tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabs[type === 'us' ? 0 : 1].classList.add('active');
+
+            if (analysisData) {
+                updateTrendChart(analysisData, type);
+            }
+        }
+
+        // Switch Scatter Tab
+        function switchScatterTab(type) {
+            currentScatterTab = type;
+
+            // Update Tab UI
+            const tabs = document.querySelectorAll('.charts-grid .card:last-child .tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabs[type === 'us' ? 0 : 1].classList.add('active');
+
+            if (analysisData) {
+                updateScatterChart(analysisData, type);
+            }
+        }
+    </script>
+</body>
+</html>

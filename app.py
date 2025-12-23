@@ -48,7 +48,8 @@ corp_code_cache = TTLCache(maxsize=10, ttl=86400)  # 24시간
 COMPANY_MAP = {
     'samsung': {'name': '삼성생명', 'corp_code': '00126256'},  # 삼성생명보험주식회사
     'hanwha': {'name': '한화생명', 'corp_code': '00113058'},   # 한화생명보험주식회사
-    'kyobo': {'name': '교보생명', 'corp_code': '00112882'}     # 교보생명보험주식회사
+    'kyobo': {'name': '교보생명', 'corp_code': '00112882'},    # 교보생명보험주식회사
+    'shinhan': {'name': '신한라이프', 'corp_code': '00137517'} # 신한라이프생명보험주식회사
 }
 
 # ECOS 국고채 10년 시계열 코드 (탐색 후 캐싱)
@@ -419,7 +420,8 @@ def get_companies():
     companies = [
         {"id": "samsung", "name": "삼성생명"},
         {"id": "hanwha", "name": "한화생명"},
-        {"id": "kyobo", "name": "교보생명"}
+        {"id": "kyobo", "name": "교보생명"},
+        {"id": "shinhan", "name": "신한라이프"}
     ]
     return jsonify(companies)
 

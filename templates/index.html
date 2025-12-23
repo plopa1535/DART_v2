@@ -424,18 +424,18 @@
                     </div>
                 </div>
 
-                <!-- Sensitivity Chart -->
+                <!-- Sensitivity Chart (Time Series) -->
                 <div class="card">
                     <div class="card-title">
                         <span class="icon" style="background: #FCE8E6; color: #EA4335;">&#9632;</span>
-                        민감도 분석 (Scatter)
+                        민감도 분석 (시계열)
                     </div>
                     <div class="tabs">
-                        <button class="tab active" onclick="switchScatterTab('us')">US 10Y</button>
-                        <button class="tab" onclick="switchScatterTab('kr')">KR 10Y</button>
+                        <button class="tab active" onclick="switchSensitivityTab('us')">US 10Y</button>
+                        <button class="tab" onclick="switchSensitivityTab('kr')">KR 10Y</button>
                     </div>
                     <div class="chart-container">
-                        <canvas id="scatterChart"></canvas>
+                        <canvas id="sensitivityChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -505,13 +505,13 @@
     <script>
         // Global Variables
         let trendChart = null;
-        let scatterChart = null;
+        let sensitivityChart = null;
         let assetChart = null;
         let liabilityChart = null;
         let balanceChart = null;
         let analysisData = null;
         let currentRateTab = 'us';
-        let currentScatterTab = 'us';
+        let currentSensitivityTab = 'us';
         let currentAssetTab = 'us';
         let currentLiabilityTab = 'us';
 
@@ -628,46 +628,98 @@
                 }
             });
 
-            // Scatter Chart
-            const scatterCtx = document.getElementById('scatterChart').getContext('2d');
-            scatterChart = new Chart(scatterCtx, {
-                type: 'scatter',
+            // Sensitivity Chart (Time Series: 자본변화율, 금리변화, 듀레이션)
+            const sensitivityCtx = document.getElementById('sensitivityChart').getContext('2d');
+            sensitivityChart = new Chart(sensitivityCtx, {
+                type: 'line',
                 data: {
-                    datasets: [{
-                        label: '자본 vs 금리 변화',
-                        data: [],
-                        backgroundColor: COLORS.blue + '80',
-                        borderColor: COLORS.blue,
-                        pointRadius: 8,
-                        pointHoverRadius: 10
-                    }]
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '자본 변화율 (%)',
+                            data: [],
+                            borderColor: COLORS.green,
+                            backgroundColor: COLORS.green + '20',
+                            yAxisID: 'y',
+                            tension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: '금리 변화 (%p)',
+                            data: [],
+                            borderColor: COLORS.blue,
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y',
+                            tension: 0.1,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: '듀레이션',
+                            data: [],
+                            borderColor: COLORS.red,
+                            backgroundColor: COLORS.red + '20',
+                            yAxisID: 'y1',
+                            tension: 0.1,
+                            fill: false,
+                            pointRadius: 5,
+                            pointBackgroundColor: COLORS.red
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
                     plugins: {
                         legend: {
-                            display: false
+                            position: 'top'
                         },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `금리 변화: ${(context.raw.x * 100).toFixed(2)}%, 자본 변화: ${(context.raw.y * 100).toFixed(2)}%`;
+                                    const label = context.dataset.label;
+                                    const value = context.raw;
+                                    if (value === null) return `${label}: -`;
+                                    if (label === '듀레이션') return `${label}: ${value.toFixed(2)}`;
+                                    return `${label}: ${(value * 100).toFixed(2)}%`;
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
+                            type: 'time',
+                            time: {
+                                unit: 'quarter',
+                                displayFormats: {
+                                    quarter: 'yyyy-MM'
+                                }
+                            },
                             title: {
                                 display: true,
-                                text: '금리 변화 (소수)'
+                                text: '분기'
                             }
                         },
                         y: {
+                            type: 'linear',
+                            position: 'left',
                             title: {
                                 display: true,
-                                text: '자본 변화율 (QoQ)'
+                                text: '변화율'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '듀레이션'
+                            },
+                            grid: {
+                                drawOnChartArea: false
                             }
                         }
                     }
@@ -895,8 +947,8 @@
             // Update Trend Chart
             updateTrendChart(data, currentRateTab);
 
-            // Update Scatter Chart
-            updateScatterChart(data, currentScatterTab);
+            // Update Sensitivity Chart
+            updateSensitivityChart(data, currentSensitivityTab);
 
             // Update Asset Chart
             updateAssetChart(data, currentAssetTab);
@@ -924,26 +976,22 @@
             trendChart.update();
         }
 
-        // Update Scatter Chart
-        function updateScatterChart(data, rateType) {
+        // Update Sensitivity Chart (Time Series)
+        function updateSensitivityChart(data, rateType) {
+            const labels = data.quarters.map(q => new Date(q));
             const rateChange = rateType === 'us' ? data.us10y_change : data.kr10y_change;
-            const color = rateType === 'us' ? COLORS.blue : COLORS.red;
+            const durationSeries = rateType === 'us' ? data.duration.us10y.series : data.duration.kr10y.series;
+            const rateLabel = rateType === 'us' ? 'US 10Y 금리 변화 (%p)' : 'KR 10Y 금리 변화 (%p)';
+            const rateColor = rateType === 'us' ? COLORS.blue : COLORS.red;
 
-            const scatterData = [];
-            for (let i = 0; i < data.equity_qoq.length; i++) {
-                if (data.equity_qoq[i] !== null && rateChange[i] !== null) {
-                    scatterData.push({
-                        x: rateChange[i],
-                        y: data.equity_qoq[i]
-                    });
-                }
-            }
+            sensitivityChart.data.labels = labels;
+            sensitivityChart.data.datasets[0].data = data.equity_qoq;
+            sensitivityChart.data.datasets[1].data = rateChange;
+            sensitivityChart.data.datasets[1].label = rateLabel;
+            sensitivityChart.data.datasets[1].borderColor = rateColor;
+            sensitivityChart.data.datasets[2].data = durationSeries;
 
-            scatterChart.data.datasets[0].data = scatterData;
-            scatterChart.data.datasets[0].backgroundColor = color + '80';
-            scatterChart.data.datasets[0].borderColor = color;
-
-            scatterChart.update();
+            sensitivityChart.update();
         }
 
         // Switch Rate Tab (Trend Chart)
@@ -960,17 +1008,17 @@
             }
         }
 
-        // Switch Scatter Tab
-        function switchScatterTab(type) {
-            currentScatterTab = type;
+        // Switch Sensitivity Tab
+        function switchSensitivityTab(type) {
+            currentSensitivityTab = type;
 
             // Update Tab UI
-            const tabs = document.querySelectorAll('.charts-grid .card:last-child .tab');
+            const tabs = document.querySelectorAll('.charts-grid .card:nth-child(2) .tab');
             tabs.forEach(tab => tab.classList.remove('active'));
             tabs[type === 'us' ? 0 : 1].classList.add('active');
 
             if (analysisData) {
-                updateScatterChart(analysisData, type);
+                updateSensitivityChart(analysisData, type);
             }
         }
 

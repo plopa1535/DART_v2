@@ -374,7 +374,12 @@ def get_us10y_rate(quarter_dates: list):
 
 
 def calculate_duration(equity_qoq: list, rate_change: list):
-    """듀레이션 계산: D_t = -r^E_t / Δy_t"""
+    """
+    민감도 계산: D_t = equity_change / rate_change
+
+    양수: 금리와 자본이 같은 방향으로 움직임
+    음수: 금리와 자본이 반대 방향으로 움직임
+    """
     duration_series = []
     valid_durations = []
 
@@ -384,7 +389,7 @@ def calculate_duration(equity_qoq: list, rate_change: list):
         elif rate_change[i] == 0:
             duration_series.append(None)
         else:
-            d = -equity_qoq[i] / rate_change[i]
+            d = equity_qoq[i] / rate_change[i]
             # 이상치 필터링 (절대값 100 초과는 제외)
             if abs(d) <= 100:
                 duration_series.append(round(d, 2))

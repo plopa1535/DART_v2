@@ -660,7 +660,7 @@
                         },
                         {
                             type: 'bar',
-                            label: '듀레이션',
+                            label: '민감도',
                             data: [],
                             backgroundColor: [],
                             borderColor: [],
@@ -687,7 +687,7 @@
                                     const label = context.dataset.label;
                                     const value = context.raw;
                                     if (value === null || value === undefined) return `${label}: -`;
-                                    if (label === '듀레이션') {
+                                    if (label === '민감도') {
                                         const idx = context.dataIndex;
                                         const eqChange = sensitivityChart.data.datasets[0].data[idx];
                                         const rtChange = sensitivityChart.data.datasets[1].data[idx];
@@ -696,7 +696,7 @@
                                             const rtPct = (rtChange * 100).toFixed(2);
                                             return [
                                                 `${label}: ${value.toFixed(2)}`,
-                                                `= -(${eqPct}%) / (${rtPct}%p)`
+                                                `= (${eqPct}%) / (${rtPct}%p)`
                                             ];
                                         }
                                         return `${label}: ${value.toFixed(2)}`;
@@ -733,7 +733,7 @@
                             position: 'right',
                             title: {
                                 display: true,
-                                text: '듀레이션'
+                                text: '민감도'
                             },
                             grid: {
                                 drawOnChartArea: false

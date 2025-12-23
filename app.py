@@ -43,12 +43,12 @@ fred_cache = TTLCache(maxsize=256, ttl=21600)
 corp_code_cache = TTLCache(maxsize=10, ttl=86400)  # 24시간
 
 # ============================================================================
-# 회사 매핑 (corp_code는 DART에서 조회하여 캐싱)
+# 회사 매핑 (corp_code 하드코딩 - DART에서 조회한 값)
 # ============================================================================
 COMPANY_MAP = {
-    'samsung': {'name': '삼성생명', 'search_name': '삼성생명보험'},
-    'hanwha': {'name': '한화생명', 'search_name': '한화생명보험'},
-    'kyobo': {'name': '교보생명', 'search_name': '교보생명보험'}
+    'samsung': {'name': '삼성생명', 'corp_code': '00126380'},  # 삼성생명보험주식회사
+    'hanwha': {'name': '한화생명', 'corp_code': '00117403'},   # 한화생명보험주식회사
+    'kyobo': {'name': '교보생명', 'corp_code': '00113962'}     # 교보생명보험주식회사
 }
 
 # ECOS 국고채 10년 시계열 코드 (탐색 후 캐싱)
@@ -120,14 +120,10 @@ def get_dart_equity(company_id: str, year_count: int = 3):
     if not DART_API_KEY:
         raise ValueError("DART_API_KEY가 설정되지 않았습니다.")
 
-    corp_codes = get_corp_codes()
-    corp_code = corp_codes.get(company_id)
-
-    if not corp_code:
-        raise ValueError(f"회사 '{company_id}'의 corp_code를 찾을 수 없습니다.")
+    # 하드코딩된 corp_code 사용
+    corp_code = COMPANY_MAP[company_id]['corp_code']
 
     current_year = datetime.now().year
-    current_month = datetime.now().month
 
     # 분기 데이터 수집
     quarters_data = []
@@ -148,14 +144,13 @@ def get_dart_equity(company_id: str, year_count: int = 3):
                 continue
 
             try:
-                # 단일회사 전체 재무제표 조회 API
-                url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
+                # 단일회사 주요계정 조회 API (더 간단하고 안정적)
+                url = "https://opendart.fss.or.kr/api/fnlttSinglAcnt.json"
                 params = {
                     'crtfc_key': DART_API_KEY,
                     'corp_code': corp_code,
                     'bsns_year': str(year),
-                    'reprt_code': reprt_code,
-                    'fs_div': 'OFS'  # 별도재무제표
+                    'reprt_code': reprt_code
                 }
 
                 response = requests.get(url, params=params, timeout=30)
@@ -164,9 +159,11 @@ def get_dart_equity(company_id: str, year_count: int = 3):
                 if data.get('status') == '000' and data.get('list'):
                     for item in data['list']:
                         account_nm = item.get('account_nm', '')
-                        # 자본총계 찾기
-                        if '자본총계' in account_nm or account_nm == '자본 총계':
-                            # 당기금액 추출 (thstrm_amount)
+                        fs_div = item.get('fs_div', '')  # OFS: 별도, CFS: 연결
+
+                        # 별도재무제표의 자본총계 찾기
+                        if fs_div == 'OFS' and ('자본총계' in account_nm or account_nm == '자본 총계'):
+                            # 당기금액 추출
                             amount_str = item.get('thstrm_amount', '0')
                             if amount_str and amount_str != '-':
                                 amount = int(amount_str.replace(',', ''))

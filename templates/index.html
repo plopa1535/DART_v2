@@ -628,41 +628,45 @@
                 }
             });
 
-            // Sensitivity Chart (Time Series: 자본변화율, 금리변화, 듀레이션)
+            // Sensitivity Chart (Time Series: 자본변화율, 금리변화, 듀레이션 막대)
             const sensitivityCtx = document.getElementById('sensitivityChart').getContext('2d');
             sensitivityChart = new Chart(sensitivityCtx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: [],
                     datasets: [
                         {
+                            type: 'line',
                             label: '자본 변화율 (%)',
                             data: [],
                             borderColor: COLORS.green,
-                            backgroundColor: COLORS.green + '20',
+                            backgroundColor: COLORS.green,
                             yAxisID: 'y',
                             tension: 0.1,
-                            fill: false
+                            pointRadius: 4,
+                            order: 1
                         },
                         {
+                            type: 'line',
                             label: '금리 변화 (%p)',
                             data: [],
                             borderColor: COLORS.blue,
-                            backgroundColor: 'transparent',
+                            backgroundColor: COLORS.blue,
                             yAxisID: 'y',
                             tension: 0.1,
-                            borderDash: [5, 5]
+                            borderDash: [5, 5],
+                            pointRadius: 4,
+                            order: 2
                         },
                         {
+                            type: 'bar',
                             label: '듀레이션',
                             data: [],
-                            borderColor: COLORS.red,
-                            backgroundColor: COLORS.red + '20',
+                            backgroundColor: [],
+                            borderColor: [],
+                            borderWidth: 1,
                             yAxisID: 'y1',
-                            tension: 0.1,
-                            fill: false,
-                            pointRadius: 5,
-                            pointBackgroundColor: COLORS.red
+                            order: 3
                         }
                     ]
                 },
@@ -682,8 +686,21 @@
                                 label: function(context) {
                                     const label = context.dataset.label;
                                     const value = context.raw;
-                                    if (value === null) return `${label}: -`;
-                                    if (label === '듀레이션') return `${label}: ${value.toFixed(2)}`;
+                                    if (value === null || value === undefined) return `${label}: -`;
+                                    if (label === '듀레이션') {
+                                        const idx = context.dataIndex;
+                                        const eqChange = sensitivityChart.data.datasets[0].data[idx];
+                                        const rtChange = sensitivityChart.data.datasets[1].data[idx];
+                                        if (eqChange !== null && rtChange !== null && rtChange !== 0) {
+                                            const eqPct = (eqChange * 100).toFixed(2);
+                                            const rtPct = (rtChange * 100).toFixed(2);
+                                            return [
+                                                `${label}: ${value.toFixed(2)}`,
+                                                `= -(${eqPct}%) / (${rtPct}%p)`
+                                            ];
+                                        }
+                                        return `${label}: ${value.toFixed(2)}`;
+                                    }
                                     return `${label}: ${(value * 100).toFixed(2)}%`;
                                 }
                             }
@@ -984,12 +1001,25 @@
             const rateLabel = rateType === 'us' ? 'US 10Y 금리 변화 (%p)' : 'KR 10Y 금리 변화 (%p)';
             const rateColor = rateType === 'us' ? COLORS.blue : COLORS.red;
 
+            // 듀레이션 막대 색상 (양수: 빨강, 음수: 파랑)
+            const barColors = durationSeries.map(d => {
+                if (d === null) return 'rgba(200,200,200,0.5)';
+                return d >= 0 ? COLORS.red + 'AA' : COLORS.blue + 'AA';
+            });
+            const barBorders = durationSeries.map(d => {
+                if (d === null) return 'rgba(200,200,200,1)';
+                return d >= 0 ? COLORS.red : COLORS.blue;
+            });
+
             sensitivityChart.data.labels = labels;
             sensitivityChart.data.datasets[0].data = data.equity_qoq;
             sensitivityChart.data.datasets[1].data = rateChange;
             sensitivityChart.data.datasets[1].label = rateLabel;
             sensitivityChart.data.datasets[1].borderColor = rateColor;
+            sensitivityChart.data.datasets[1].backgroundColor = rateColor;
             sensitivityChart.data.datasets[2].data = durationSeries;
+            sensitivityChart.data.datasets[2].backgroundColor = barColors;
+            sensitivityChart.data.datasets[2].borderColor = barBorders;
 
             sensitivityChart.update();
         }

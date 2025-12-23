@@ -157,21 +157,33 @@ def get_dart_equity(company_id: str, year_count: int = 3):
                 data = response.json()
 
                 if data.get('status') == '000' and data.get('list'):
+                    quarter_item = {'quarter': quarter_end}
+
                     for item in data['list']:
                         account_nm = item.get('account_nm', '')
                         fs_div = item.get('fs_div', '')  # OFS: 별도, CFS: 연결
 
-                        # 별도재무제표의 자본총계 찾기
-                        if fs_div == 'OFS' and ('자본총계' in account_nm or account_nm == '자본 총계'):
-                            # 당기금액 추출
-                            amount_str = item.get('thstrm_amount', '0')
-                            if amount_str and amount_str != '-':
-                                amount = int(amount_str.replace(',', ''))
-                                quarters_data.append({
-                                    'quarter': quarter_end,
-                                    'equity': amount
-                                })
-                                break
+                        if fs_div != 'OFS':
+                            continue
+
+                        amount_str = item.get('thstrm_amount', '0')
+                        if not amount_str or amount_str == '-':
+                            continue
+
+                        amount = int(amount_str.replace(',', ''))
+
+                        # 자본총계
+                        if '자본총계' in account_nm or account_nm == '자본 총계':
+                            quarter_item['equity'] = amount
+                        # 자산총계
+                        elif '자산총계' in account_nm or account_nm == '자산 총계':
+                            quarter_item['asset'] = amount
+                        # 부채총계
+                        elif '부채총계' in account_nm or account_nm == '부채 총계':
+                            quarter_item['liability'] = amount
+
+                    if 'equity' in quarter_item:
+                        quarters_data.append(quarter_item)
 
             except Exception as e:
                 print(f"DART 조회 오류 ({year} {quarter_name}): {e}")
@@ -438,6 +450,8 @@ def analyze():
 
         quarters = [item['quarter'] for item in equity_data]
         equity_levels = [item['equity'] for item in equity_data]
+        asset_levels = [item.get('asset') for item in equity_data]
+        liability_levels = [item.get('liability') for item in equity_data]
 
         if len(quarters) < 2:
             return jsonify({
@@ -506,13 +520,17 @@ def analyze():
         us10y_duration_series, us10y_duration_summary = calculate_duration(equity_qoq, us10y_change)
         kr10y_duration_series, kr10y_duration_summary = calculate_duration(equity_qoq, kr10y_change)
 
-        # 6. 자본총계를 억원 단위로 변환
+        # 6. 억원 단위로 변환
         equity_level_billions = [round(e / 100000000, 1) if e else None for e in equity_levels]
+        asset_level_billions = [round(a / 100000000, 1) if a else None for a in asset_levels]
+        liability_level_billions = [round(l / 100000000, 1) if l else None for l in liability_levels]
 
         # 7. 응답 구성
         response = {
             "quarters": quarters,
             "equity_level": equity_level_billions,
+            "asset_level": asset_level_billions,
+            "liability_level": liability_level_billions,
             "us10y_level": us10y_levels,
             "kr10y_level": kr10y_levels,
             "equity_qoq": equity_qoq,

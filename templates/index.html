@@ -439,6 +439,50 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Asset & Liability Charts -->
+            <div class="charts-grid" style="margin-top: 24px;">
+                <!-- Asset Chart -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background: #E3F2FD; color: #1976D2;">&#128176;</span>
+                        자산총계 & 금리 추이
+                    </div>
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchAssetTab('us')">US 10Y</button>
+                        <button class="tab" onclick="switchAssetTab('kr')">KR 10Y</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="assetChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Liability Chart -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon" style="background: #FFF3E0; color: #F57C00;">&#128179;</span>
+                        부채총계 & 금리 추이
+                    </div>
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchLiabilityTab('us')">US 10Y</button>
+                        <button class="tab" onclick="switchLiabilityTab('kr')">KR 10Y</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="liabilityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balance Sheet Structure Chart -->
+            <div class="card" style="margin-top: 24px;">
+                <div class="card-title">
+                    <span class="icon" style="background: #F3E5F5; color: #7B1FA2;">&#128202;</span>
+                    재무상태 구조 (자산 = 부채 + 자본)
+                </div>
+                <div class="chart-container">
+                    <canvas id="balanceChart"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Empty State -->
@@ -462,16 +506,24 @@
         // Global Variables
         let trendChart = null;
         let scatterChart = null;
+        let assetChart = null;
+        let liabilityChart = null;
+        let balanceChart = null;
         let analysisData = null;
         let currentRateTab = 'us';
         let currentScatterTab = 'us';
+        let currentAssetTab = 'us';
+        let currentLiabilityTab = 'us';
 
         // Colors
         const COLORS = {
             blue: '#4285F4',
             red: '#EA4335',
             green: '#34A853',
-            yellow: '#FBBC04'
+            yellow: '#FBBC04',
+            purple: '#7B1FA2',
+            orange: '#F57C00',
+            cyan: '#00ACC1'
         };
 
         // Initialize
@@ -621,6 +673,160 @@
                     }
                 }
             });
+
+            // Asset Chart
+            const assetCtx = document.getElementById('assetChart').getContext('2d');
+            assetChart = new Chart(assetCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '자산총계 (억원)',
+                            data: [],
+                            borderColor: COLORS.cyan,
+                            backgroundColor: COLORS.cyan + '20',
+                            yAxisID: 'y',
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'US 10Y (%)',
+                            data: [],
+                            borderColor: COLORS.blue,
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y1',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'quarter', displayFormats: { quarter: 'yyyy-MM' } },
+                            title: { display: true, text: '분기' }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: '자산총계 (억원)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: '금리 (%)' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+
+            // Liability Chart
+            const liabilityCtx = document.getElementById('liabilityChart').getContext('2d');
+            liabilityChart = new Chart(liabilityCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '부채총계 (억원)',
+                            data: [],
+                            borderColor: COLORS.orange,
+                            backgroundColor: COLORS.orange + '20',
+                            yAxisID: 'y',
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'US 10Y (%)',
+                            data: [],
+                            borderColor: COLORS.blue,
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y1',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'quarter', displayFormats: { quarter: 'yyyy-MM' } },
+                            title: { display: true, text: '분기' }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: '부채총계 (억원)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: '금리 (%)' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+
+            // Balance Sheet Chart (Stacked Bar)
+            const balanceCtx = document.getElementById('balanceChart').getContext('2d');
+            balanceChart = new Chart(balanceCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '부채총계 (억원)',
+                            data: [],
+                            backgroundColor: COLORS.orange + 'CC',
+                            stack: 'stack0'
+                        },
+                        {
+                            label: '자본총계 (억원)',
+                            data: [],
+                            backgroundColor: COLORS.green + 'CC',
+                            stack: 'stack0'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    if (analysisData && analysisData.asset_level) {
+                                        return `자산총계: ${analysisData.asset_level[idx]?.toLocaleString() || '-'} 억원`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: '분기' }
+                        },
+                        y: {
+                            stacked: true,
+                            title: { display: true, text: '금액 (억원)' }
+                        }
+                    }
+                }
+            });
         }
 
         // Run Analysis
@@ -691,6 +897,15 @@
 
             // Update Scatter Chart
             updateScatterChart(data, currentScatterTab);
+
+            // Update Asset Chart
+            updateAssetChart(data, currentAssetTab);
+
+            // Update Liability Chart
+            updateLiabilityChart(data, currentLiabilityTab);
+
+            // Update Balance Chart
+            updateBalanceChart(data);
         }
 
         // Update Trend Chart
@@ -756,6 +971,82 @@
 
             if (analysisData) {
                 updateScatterChart(analysisData, type);
+            }
+        }
+
+        // Update Asset Chart
+        function updateAssetChart(data, rateType) {
+            const labels = data.quarters.map(q => new Date(q));
+            const rateData = rateType === 'us' ? data.us10y_level : data.kr10y_level;
+            const rateLabel = rateType === 'us' ? 'US 10Y (%)' : 'KR 10Y (%)';
+            const rateColor = rateType === 'us' ? COLORS.blue : COLORS.red;
+
+            assetChart.data.labels = labels;
+            assetChart.data.datasets[0].data = data.asset_level || [];
+            assetChart.data.datasets[1].data = rateData;
+            assetChart.data.datasets[1].label = rateLabel;
+            assetChart.data.datasets[1].borderColor = rateColor;
+
+            assetChart.update();
+        }
+
+        // Update Liability Chart
+        function updateLiabilityChart(data, rateType) {
+            const labels = data.quarters.map(q => new Date(q));
+            const rateData = rateType === 'us' ? data.us10y_level : data.kr10y_level;
+            const rateLabel = rateType === 'us' ? 'US 10Y (%)' : 'KR 10Y (%)';
+            const rateColor = rateType === 'us' ? COLORS.blue : COLORS.red;
+
+            liabilityChart.data.labels = labels;
+            liabilityChart.data.datasets[0].data = data.liability_level || [];
+            liabilityChart.data.datasets[1].data = rateData;
+            liabilityChart.data.datasets[1].label = rateLabel;
+            liabilityChart.data.datasets[1].borderColor = rateColor;
+
+            liabilityChart.update();
+        }
+
+        // Update Balance Sheet Chart
+        function updateBalanceChart(data) {
+            const labels = data.quarters.map(q => {
+                const d = new Date(q);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            });
+
+            balanceChart.data.labels = labels;
+            balanceChart.data.datasets[0].data = data.liability_level || [];
+            balanceChart.data.datasets[1].data = data.equity_level || [];
+
+            balanceChart.update();
+        }
+
+        // Switch Asset Tab
+        function switchAssetTab(type) {
+            currentAssetTab = type;
+
+            // Update Tab UI - Asset chart is first card in second charts-grid
+            const assetCard = document.querySelectorAll('.charts-grid')[1].querySelector('.card:first-child');
+            const tabs = assetCard.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabs[type === 'us' ? 0 : 1].classList.add('active');
+
+            if (analysisData) {
+                updateAssetChart(analysisData, type);
+            }
+        }
+
+        // Switch Liability Tab
+        function switchLiabilityTab(type) {
+            currentLiabilityTab = type;
+
+            // Update Tab UI - Liability chart is second card in second charts-grid
+            const liabilityCard = document.querySelectorAll('.charts-grid')[1].querySelector('.card:last-child');
+            const tabs = liabilityCard.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabs[type === 'us' ? 0 : 1].classList.add('active');
+
+            if (analysisData) {
+                updateLiabilityChart(analysisData, type);
             }
         }
     </script>

@@ -628,7 +628,7 @@
                 }
             });
 
-            // Sensitivity Chart (Time Series: 자본변화율, 금리변화, 듀레이션 막대)
+            // Sensitivity Chart (막대 그래프만)
             const sensitivityCtx = document.getElementById('sensitivityChart').getContext('2d');
             sensitivityChart = new Chart(sensitivityCtx, {
                 type: 'bar',
@@ -636,72 +636,38 @@
                     labels: [],
                     datasets: [
                         {
-                            type: 'line',
-                            label: '자본 변화율 (%)',
-                            data: [],
-                            borderColor: COLORS.green,
-                            backgroundColor: COLORS.green,
-                            yAxisID: 'y',
-                            tension: 0.1,
-                            pointRadius: 4,
-                            order: 1
-                        },
-                        {
-                            type: 'line',
-                            label: '금리 변화 (%p)',
-                            data: [],
-                            borderColor: COLORS.blue,
-                            backgroundColor: COLORS.blue,
-                            yAxisID: 'y',
-                            tension: 0.1,
-                            borderDash: [5, 5],
-                            pointRadius: 4,
-                            order: 2
-                        },
-                        {
-                            type: 'bar',
                             label: '민감도',
                             data: [],
                             backgroundColor: [],
                             borderColor: [],
-                            borderWidth: 1,
-                            yAxisID: 'y1',
-                            order: 3
+                            borderWidth: 1
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
                     plugins: {
                         legend: {
-                            position: 'top'
+                            display: false
                         },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    const label = context.dataset.label;
                                     const value = context.raw;
-                                    if (value === null || value === undefined) return `${label}: -`;
-                                    if (label === '민감도') {
-                                        const idx = context.dataIndex;
-                                        const eqChange = sensitivityChart.data.datasets[0].data[idx];
-                                        const rtChange = sensitivityChart.data.datasets[1].data[idx];
-                                        if (eqChange !== null && rtChange !== null && rtChange !== 0) {
-                                            const eqPct = (eqChange * 100).toFixed(2);
-                                            const rtPct = (rtChange * 100).toFixed(2);
-                                            return [
-                                                `${label}: ${value.toFixed(2)}`,
-                                                `= (${eqPct}%) / (${rtPct}%p)`
-                                            ];
-                                        }
-                                        return `${label}: ${value.toFixed(2)}`;
+                                    if (value === null || value === undefined) return '민감도: -';
+                                    const idx = context.dataIndex;
+                                    const eqChange = sensitivityChart.equityData ? sensitivityChart.equityData[idx] : null;
+                                    const rtChange = sensitivityChart.rateData ? sensitivityChart.rateData[idx] : null;
+                                    if (eqChange !== null && rtChange !== null && rtChange !== 0) {
+                                        const eqPct = (eqChange * 100).toFixed(2);
+                                        const rtPct = (rtChange * 100).toFixed(2);
+                                        return [
+                                            `민감도: ${value.toFixed(2)}`,
+                                            `= (${eqPct}%) / (${rtPct}%p)`
+                                        ];
                                     }
-                                    return `${label}: ${(value * 100).toFixed(2)}%`;
+                                    return `민감도: ${value.toFixed(2)}`;
                                 }
                             }
                         }
@@ -722,21 +688,9 @@
                         },
                         y: {
                             type: 'linear',
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: '변화율'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            position: 'right',
                             title: {
                                 display: true,
                                 text: '민감도'
-                            },
-                            grid: {
-                                drawOnChartArea: false
                             }
                         }
                     }
@@ -993,33 +947,30 @@
             trendChart.update();
         }
 
-        // Update Sensitivity Chart (Time Series)
+        // Update Sensitivity Chart (막대 그래프만)
         function updateSensitivityChart(data, rateType) {
             const labels = data.quarters.map(q => new Date(q));
             const rateChange = rateType === 'us' ? data.us10y_change : data.kr10y_change;
             const durationSeries = rateType === 'us' ? data.duration.us10y.series : data.duration.kr10y.series;
-            const rateLabel = rateType === 'us' ? 'US 10Y 금리 변화 (%p)' : 'KR 10Y 금리 변화 (%p)';
-            const rateColor = rateType === 'us' ? COLORS.blue : COLORS.red;
 
-            // 듀레이션 막대 색상 (양수: 빨강, 음수: 파랑)
+            // 민감도 막대 색상 (양수: 초록, 음수: 빨강)
             const barColors = durationSeries.map(d => {
                 if (d === null) return 'rgba(200,200,200,0.5)';
-                return d >= 0 ? COLORS.red + 'AA' : COLORS.blue + 'AA';
+                return d >= 0 ? COLORS.green + 'CC' : COLORS.red + 'CC';
             });
             const barBorders = durationSeries.map(d => {
                 if (d === null) return 'rgba(200,200,200,1)';
-                return d >= 0 ? COLORS.red : COLORS.blue;
+                return d >= 0 ? COLORS.green : COLORS.red;
             });
 
+            // 툴팁용 데이터 저장
+            sensitivityChart.equityData = data.equity_qoq;
+            sensitivityChart.rateData = rateChange;
+
             sensitivityChart.data.labels = labels;
-            sensitivityChart.data.datasets[0].data = data.equity_qoq;
-            sensitivityChart.data.datasets[1].data = rateChange;
-            sensitivityChart.data.datasets[1].label = rateLabel;
-            sensitivityChart.data.datasets[1].borderColor = rateColor;
-            sensitivityChart.data.datasets[1].backgroundColor = rateColor;
-            sensitivityChart.data.datasets[2].data = durationSeries;
-            sensitivityChart.data.datasets[2].backgroundColor = barColors;
-            sensitivityChart.data.datasets[2].borderColor = barBorders;
+            sensitivityChart.data.datasets[0].data = durationSeries;
+            sensitivityChart.data.datasets[0].backgroundColor = barColors;
+            sensitivityChart.data.datasets[0].borderColor = barBorders;
 
             sensitivityChart.update();
         }

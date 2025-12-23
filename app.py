@@ -391,12 +391,10 @@ def calculate_duration(equity_qoq: list, rate_change: list):
             duration_series.append(None)
         else:
             d = equity_qoq[i] / rate_change[i]
-            # 이상치 필터링 (절대값 100 초과는 제외)
-            if abs(d) <= 100:
-                duration_series.append(round(d, 2))
-                valid_durations.append(d)
-            else:
-                duration_series.append(None)
+            # 이상치 클리핑 (±100 범위로 제한)
+            d_clipped = max(min(d, 100), -100)
+            duration_series.append(round(d_clipped, 2))
+            valid_durations.append(d_clipped)
 
     # Summary는 median 사용 (강건)
     summary = round(median(valid_durations), 2) if valid_durations else None

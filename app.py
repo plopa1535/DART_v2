@@ -554,6 +554,44 @@ def health_check():
     })
 
 
+@app.route('/api/search_corp', methods=['GET'])
+def search_corp():
+    """회사명으로 corp_code 검색 (디버그용)"""
+    keyword = request.args.get('keyword', '')
+    if not keyword:
+        return jsonify({"error": "keyword 파라미터 필요"}), 400
+
+    if not DART_API_KEY:
+        return jsonify({"error": "DART_API_KEY 미설정"}), 500
+
+    try:
+        url = f"https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key={DART_API_KEY}"
+        response = requests.get(url, timeout=60)
+
+        with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+            xml_filename = z.namelist()[0]
+            with z.open(xml_filename) as f:
+                tree = ET.parse(f)
+                root = tree.getroot()
+
+        results = []
+        for corp in root.findall('.//list'):
+            corp_name = corp.find('corp_name').text if corp.find('corp_name') is not None else ''
+            if keyword in corp_name:
+                corp_code = corp.find('corp_code').text if corp.find('corp_code') is not None else ''
+                stock_code = corp.find('stock_code').text if corp.find('stock_code') is not None else ''
+                results.append({
+                    "corp_name": corp_name,
+                    "corp_code": corp_code,
+                    "stock_code": stock_code
+                })
+
+        return jsonify({"keyword": keyword, "results": results[:20]})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ============================================================================
 # 메인 실행
 # ============================================================================
